@@ -2,20 +2,6 @@
 graph_coloring.py
 -----------------
 Implements the EXACT Welsh-Powell Graph Coloring Algorithm.
-
-Algorithm
----------
-1. Compute the degree of every vertex.
-2. Sort vertices in DESCENDING order of degree
-   (ties broken by vertex id for determinism).
-3. Iterate through the sorted list:
-      a. If the vertex has no color yet, assign it the lowest
-         non-negative integer that does not appear among any
-         already-colored NEIGHBOUR.
-4. Return {vertex: color} for all vertices.
-
-The chromatic number χ(G) = max(coloring.values()) + 1,
-representing the MINIMUM number of time slots required.
 """
 
 from __future__ import annotations
@@ -26,50 +12,57 @@ import networkx as nx  # type: ignore[import]
 # Welsh-Powell Coloring
 # ─────────────────────────────────────────────────────────────────────────────
 
-def welsh_powell_coloring(G: nx.Graph) -> dict:
+def welsh_powell_coloring(G: nx.Graph, max_color_capacity: int | None = None) -> dict:
     """
     Apply the Welsh-Powell algorithm and return a vertex coloring.
-
-    Parameters
-    ----------
-    G : networkx.Graph
-        The conflict graph where each node is a match.
+    If max_color_capacity is provided, it guarantees no color is assigned
+    to more than `max_color_capacity` vertices (e.g., stadium count).
 
     Returns
     -------
     coloring : dict[node_id, color_int]
         Mapping from vertex to its assigned color (0-indexed).
-        The chromatic number is  max(coloring.values()) + 1.
     """
     if G.number_of_nodes() == 0:
         return {}
 
-    # ── STEP 1: Compute degrees ───────────────────────────────────────────────
+    # 1. Compute degrees
     degree_map: dict = dict(G.degree())
 
-    # ── STEP 2: Sort vertices by descending degree, then by id for stability ──
+    # 2. Sort descending
     sorted_vertices: list = sorted(
         G.nodes(),
         key=lambda v: (-degree_map[v], str(v)),
     )
 
-    # ── STEP 3: Greedy coloring on sorted list ────────────────────────────────
+    # 3. Greedy coloring
     coloring: dict = {}
+    color_counts: dict = {}
 
     for vertex in sorted_vertices:
-        # Collect colors already used by neighbours
         neighbour_colors: set = {
             coloring[nbr]
             for nbr in G.neighbors(vertex)
             if nbr in coloring
         }
 
-        # Assign the smallest non-negative color not in neighbour_colors
         color = 0
-        while color in neighbour_colors:
-            color += 1
+        while True:
+            # 4. Ensure adjacent vertices never share color
+            if color in neighbour_colors:
+                color += 1
+                continue
+            
+            # Ensure stadium capacity limit
+            if max_color_capacity is not None and color_counts.get(color, 0) >= max_color_capacity:
+                color += 1
+                continue
+                
+            # Valid color found
+            break
 
         coloring[vertex] = color
+        color_counts[color] = color_counts.get(color, 0) + 1
 
     return coloring
 
@@ -86,13 +79,7 @@ def chromatic_number(coloring: dict) -> int:
 
 
 def coloring_summary(coloring: dict) -> dict:
-    """
-    Group vertices by color (time slot group).
-
-    Returns
-    -------
-    {color_int: [vertex_id, ...], ...}
-    """
+    """Group vertices by color (time slot group)."""
     groups: dict = {}
     for vertex, color in coloring.items():
         groups.setdefault(color, []).append(vertex)

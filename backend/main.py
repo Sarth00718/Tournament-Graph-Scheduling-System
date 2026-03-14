@@ -15,18 +15,18 @@ GET  /health              – Server health check
 
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException  # type: ignore[import]
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore[import]
+from pydantic import BaseModel  # type: ignore[import]
 from typing import Any, Optional
 import traceback
 
-from data_loader import parse_payload
-from conflict_graph import generate_matches, build_conflict_graph, graph_to_dict
-from graph_coloring import welsh_powell_coloring, chromatic_number, coloring_summary
-from travel_optimizer import build_stadium_graph, compute_team_travel, stadium_graph_to_dict
-from schedule_generator import generate_schedule
-from visualization import build_adjacency_matrix, build_tournament_tree, graph_statistics
+from data_loader import parse_payload  # type: ignore[import-not-found]
+from conflict_graph import generate_matches, build_conflict_graph, graph_to_dict  # type: ignore[import-not-found]
+from graph_coloring import welsh_powell_coloring, chromatic_number, coloring_summary  # type: ignore[import-not-found]
+from travel_optimizer import build_stadium_graph, compute_team_travel, stadium_graph_to_dict  # type: ignore[import-not-found]
+from schedule_generator import generate_schedule  # type: ignore[import-not-found]
+from visualization import build_adjacency_matrix, build_tournament_tree, graph_statistics  # type: ignore[import-not-found]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -103,7 +103,8 @@ def generate_schedule_endpoint(payload: ScheduleRequest) -> dict[str, Any]:
         G = build_conflict_graph(teams, matches, rules["rest_days"])
 
         # Step 3: Welsh-Powell graph coloring
-        coloring = welsh_powell_coloring(G)
+        stadium_count = len(stadiums)
+        coloring = welsh_powell_coloring(G, max_color_capacity=stadium_count)
         chi = chromatic_number(coloring)
         color_groups = coloring_summary(coloring)
 
@@ -115,7 +116,7 @@ def generate_schedule_endpoint(payload: ScheduleRequest) -> dict[str, Any]:
         travel_report = compute_team_travel(schedule, stadium_graph)
 
         # Step 6: Adjacency matrix
-        adj_matrix = build_adjacency_matrix(G)
+        adj_matrix = build_adjacency_matrix(G, matches, schedule, rules["rest_days"])
 
         # Step 7: Tournament tree
         tournament_tree = build_tournament_tree(teams)
@@ -139,7 +140,7 @@ def generate_schedule_endpoint(payload: ScheduleRequest) -> dict[str, Any]:
             "chromatic_number": chi,
             "color_groups": {str(k): v for k, v in color_groups.items()},
             "teams": teams,
-            "stadiums": [s["name"] for s in stadiums],
+            "stadiums": [s["name"] for s in stadiums],  # type: ignore[misc]
         })
 
         return {
@@ -240,5 +241,5 @@ def get_tournament_tree() -> dict[str, Any]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    import uvicorn
+    import uvicorn  # type: ignore[import]
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

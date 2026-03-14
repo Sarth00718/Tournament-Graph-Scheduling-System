@@ -3,8 +3,13 @@ import axios from 'axios'
 
 const API_BASE = 'http://localhost:8000'
 
-// Heatmap color based on value (0 or 1)
-const cellColor = (val) => val === 1 ? 'bg-blue-500/70 text-white' : 'bg-white/3 text-white/20'
+// Heatmap color based on value
+const cellColor = (val) => {
+  if (val === 1) return 'bg-blue-500/70 text-white' // Same Team
+  if (val === 2) return 'bg-yellow-500/70 text-white' // Rest Day
+  if (val === 3) return 'bg-red-500/70 text-white' // Stadium Constraint
+  return 'bg-white/3 text-white/20'
+}
 
 export default function AdjacencyMatrix({ scheduleData }) {
   const [matrixData, setMatrixData] = useState(null)
@@ -104,11 +109,11 @@ export default function AdjacencyMatrix({ scheduleData }) {
                   {row.map((val, j) => (
                     <div
                       key={j}
-                      className={`flex-shrink-0 flex items-center justify-center transition-all rounded-sm ${
+                      className={`flex-shrink-0 flex items-center justify-center transition-all rounded-sm font-bold ${
                         i === j ? 'bg-white/10 text-white/30' : cellColor(val)
                       }`}
                       style={{ width: cellSize - 1, height: cellSize - 1, fontSize: Math.min(cellSize * 0.4, 12) }}
-                      title={val === 1 ? `${matrixData.labels[i]?.id} conflicts with ${matrixData.labels[j]?.id}` : ''}
+                      title={val ? `${matrixData.labels[i]?.id} and ${matrixData.labels[j]?.id} (Conflict Type ${val})` : ''}
                     >
                       {i === j ? '—' : val || ''}
                     </div>
@@ -118,18 +123,22 @@ export default function AdjacencyMatrix({ scheduleData }) {
             </div>
 
             {/* Legend */}
-            <div className="flex gap-4 mt-4 pt-4 border-t border-white/10 text-sm">
+            <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-white/10 text-sm">
               <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-sm bg-blue-500/70" />
-                <span className="text-white/50">1 — Conflict edge exists</span>
+                <div className="w-5 h-5 rounded-sm bg-blue-500/70 flex items-center justify-center text-xs font-bold">1</div>
+                <span className="text-white/50">Same-Team Conflict</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-sm bg-white/3 border border-white/10" />
-                <span className="text-white/50">0 — No conflict</span>
+                <div className="w-5 h-5 rounded-sm bg-yellow-500/70 flex items-center justify-center text-xs font-bold">2</div>
+                <span className="text-white/50">Rest-Day Violation</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-sm bg-white/10 flex items-center justify-center text-xs text-white/30">—</div>
-                <span className="text-white/50">Self (diagonal)</span>
+                <div className="w-5 h-5 rounded-sm bg-red-500/70 flex items-center justify-center text-xs font-bold">3</div>
+                <span className="text-white/50">Stadium Conflict</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-sm bg-white/3 border border-white/10 flex items-center justify-center text-xs font-bold text-white/20">0</div>
+                <span className="text-white/50">No Conflict</span>
               </div>
             </div>
           </div>

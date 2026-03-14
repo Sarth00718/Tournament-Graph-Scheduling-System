@@ -32,17 +32,21 @@ export default function Dashboard({ scheduleData, setScheduleData }) {
 
   // ── Team management ──────────────────────────────────────────────────────
   const addTeam = () => {
+    setError('')
     const t = newTeam.trim()
-    if (!t || teams.includes(t)) return
+    if (!t) return setError('Team name cannot be empty.')
+    if (teams.includes(t)) return setError(`Team "${t}" already exists.`)
     setTeams([...teams, t]); setNewTeam('')
   }
   const removeTeam = (name) => setTeams(teams.filter(t => t !== name))
 
   // ── Stadium management ───────────────────────────────────────────────────
   const addStadium = () => {
+    setError('')
     const n = newStadium.name.trim()
-    if (!n || !newStadium.lat || !newStadium.lng) return
-    if (stadiums.find(s => s.name === n)) return
+    if (!n) return setError('Stadium name cannot be empty.')
+    if (!newStadium.lat || !newStadium.lng) return setError('Stadium coordinates cannot be empty.')
+    if (stadiums.find(s => s.name === n)) return setError(`Stadium "${n}" already exists.`)
     setStadiums([...stadiums, { ...newStadium, lat: parseFloat(newStadium.lat), lng: parseFloat(newStadium.lng) }])
     setNewStadium({ name: '', lat: '', lng: '' })
   }
@@ -50,15 +54,26 @@ export default function Dashboard({ scheduleData, setScheduleData }) {
 
   // ── Time slot toggles ─────────────────────────────────────────────────────
   const toggleSlot = (slot) => {
+    setError('')
     const slots = rules.time_slots.includes(slot)
       ? rules.time_slots.filter(s => s !== slot)
       : [...rules.time_slots, slot]
+    if (slots.length === 0) return setError('At least one time slot must be selected.')
     setRules({ ...rules, time_slots: slots })
   }
 
   // ── Generate schedule ─────────────────────────────────────────────────────
   const handleGenerate = async () => {
-    setError(''); setSuccess(''); setLoading(true)
+    setError(''); setSuccess('');
+    
+    // Validations
+    if (new Date(rules.start_date) > new Date(rules.end_date)) {
+      return setError('Start date must be before or equal to the end date.')
+    }
+    if (teams.length < 2) return setError('At least 2 teams are required.')
+    if (stadiums.length < 1) return setError('At least 1 stadium is required.')
+
+    setLoading(true)
     try {
       const { data } = await axios.post(`${API_BASE}/generate_schedule`, {
         teams,
@@ -70,8 +85,17 @@ export default function Dashboard({ scheduleData, setScheduleData }) {
           rest_days_between_matches: parseInt(rules.rest_days_between_matches),
         },
       })
+      
+      const totalDays = Math.ceil((new Date(data.schedule[data.schedule.length - 1].date) - new Date(data.schedule[0].date)) / (1000 * 60 * 60 * 24)) + 1;
+      
+      // Calculate stadium usage
+      const usage = {}
+      data.schedule.forEach(m => usage[m.stadium] = (usage[m.stadium] || 0) + 1)
+      data.stadiumUsage = Object.entries(usage).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count)
+      data.totalDays = totalDays
+      
       setScheduleData(data)
-      setSuccess(`✅ Schedule generated! ${data.total_matches} matches, χ(G) = ${data.chromatic_number} time-slot groups needed.`)
+      setSuccess(`✅ Schedule generated! ${data.total_matches} matches across ${totalDays} days.`)
     } catch (err) {
       setError(err.response?.data?.detail || err.message || 'Failed to connect to backend.')
     } finally {
@@ -96,18 +120,27 @@ export default function Dashboard({ scheduleData, setScheduleData }) {
 
       {/* Stats bar (after generation) */}
       {scheduleData && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 animate-slide-up">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 mb-6 animate-slide-up">
           {[
-            { label: 'Teams', value: scheduleData.total_teams, color: 'text-blue-400' },
             { label: 'Total Matches', value: scheduleData.total_matches, color: 'text-green-400' },
-            { label: 'χ(G) Chromatic', value: scheduleData.chromatic_number, color: 'text-purple-400' },
-            { label: 'Min Time Slots', value: scheduleData.min_time_slots, color: 'text-yellow-400' },
+            { label: 'χ(G) Time Slots Needed', value: scheduleData.chromatic_number, color: 'text-purple-400' },
+            { label: 'Total Days Required', value: scheduleData.totalDays, color: 'text-yellow-400' },
           ].map(s => (
             <div key={s.label} className="stat-card">
               <div className={`text-2xl font-black ${s.color}`}>{s.value}</div>
               <div className="text-xs text-white/40 mt-1">{s.label}</div>
             </div>
           ))}
+          <div className="stat-card col-span-2 sm:col-span-4 lg:col-span-2 overflow-y-auto max-h-24">
+            <div className="text-xs text-white/40 mb-1 font-bold uppercase">Stadium Usage Frequency</div>
+            <div className="flex flex-wrap gap-2">
+              {scheduleData.stadiumUsage?.map(st => (
+                 <span key={st.name} className="px-2 py-1 rounded bg-blue-500/20 text-blue-300 text-xs border border-blue-500/30">
+                    {st.name}: <strong className="text-white">{st.count} matches</strong>
+                 </span>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
