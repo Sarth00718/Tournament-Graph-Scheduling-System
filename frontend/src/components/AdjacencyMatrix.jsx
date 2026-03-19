@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
+import API_BASE_URL from '../config/api'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = API_BASE_URL
 
 // Heatmap color based on value
 const cellColor = (val) => {

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import API_BASE_URL from '../config/api'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = API_BASE_URL
 const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16','#06b6d4']
 
 export default function TravelReport({ scheduleData }) {

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
+import API_BASE_URL from '../config/api'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = API_BASE_URL
 
 const DEFAULT_TEAMS = ['TeamA', 'TeamB', 'TeamC', 'TeamD', 'TeamE', 'TeamF']
 const DEFAULT_STADIUMS = [
