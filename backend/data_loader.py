@@ -36,7 +36,14 @@ def load_teams(raw: list[str]) -> list[str]:
     if not isinstance(raw, list):
         raise ValueError("Teams must be provided as a list.")
     
+    # Filter out empty/whitespace strings
+    original_count = len(raw)
     teams = [t.strip() for t in raw if isinstance(t, str) and t.strip()]
+    
+    # Log if any teams were filtered out
+    filtered_count = original_count - len(teams)
+    if filtered_count > 0:
+        logger.warning(f"Filtered out {filtered_count} empty/whitespace team names")
     
     if len(teams) < 2:
         raise ValueError("At least 2 teams are required to generate a tournament schedule.")

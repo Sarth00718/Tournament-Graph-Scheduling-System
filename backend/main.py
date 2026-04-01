@@ -118,7 +118,10 @@ def _validate_scheduling_constraints(teams: list[str], stadiums: list[dict], rul
     
     # Constraint 1: Minimum days needed for rest days
     # Each team plays (n-1) matches with rest_days between them
-    min_days_per_team = (matches_per_team - 1) * rest_days + 1
+    # Formula: Match on day 0, then need (rest_days + 1) days to next match
+    # Example: 3 matches, 2 rest days → Day 0, Day 3, Day 6 → needs 7 days total
+    # Formula: 1 + (matches_per_team - 1) * (rest_days + 1)
+    min_days_per_team = 1 + (matches_per_team - 1) * (rest_days + 1)
     
     if min_days_per_team > available_days:
         suggested_end_date = start_date + timedelta(days=min_days_per_team - 1)
@@ -208,9 +211,18 @@ def generate_schedule_endpoint(payload: ScheduleRequest) -> dict[str, Any]:
         # Step 3: Welsh-Powell graph coloring
         logger.info("Step 3: Applying Welsh-Powell coloring")
         stadium_count = len(stadiums)
-        coloring = welsh_powell_coloring(G, max_color_capacity=stadium_count)
+        time_slots_count = len(rules["time_slots"])
+        
+        # CRITICAL FIX: Remove stadium capacity constraint from coloring
+        # The stadium capacity should be enforced during schedule generation,
+        # not during graph coloring. This allows the algorithm to find the
+        # true chromatic number and distribute colors more evenly.
+        coloring = welsh_powell_coloring(G, max_color_capacity=None)
         chi = chromatic_number(coloring)
         color_groups = coloring_summary(coloring)
+        
+        logger.info(f"Chromatic number χ(G) = {chi}")
+        logger.info(f"Color distribution: {[(c, len(matches)) for c, matches in sorted(color_groups.items())[:10]]}")
         
         # CRITICAL FIX: Validate stadium capacity
         logger.info("Step 3.5: Validating stadium capacity")
@@ -374,6 +386,46 @@ def get_tournament_tree() -> dict[str, Any]:
     return {
         "success": True,
         "tournament_tree": STATE["tournament_tree"],
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /stadium_graph
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/stadium_graph")
+def get_stadium_graph() -> dict[str, Any]:
+    """Return the stadium graph with nodes, edges, and statistics."""
+    if "stadium_graph" not in STATE:
+        raise HTTPException(
+            status_code=404,
+            detail="No schedule generated yet. Call POST /generate_schedule first.",
+        )
+    
+    graph_data = STATE["stadium_graph"]
+    nodes = graph_data["nodes"]
+    edges = graph_data["edges"]
+    
+    # Calculate density: 2|E| / (|V|(|V| - 1))
+    num_vertices = len(nodes)
+    num_edges = len(edges)
+    
+    if num_vertices > 1:
+        density = (2 * num_edges) / (num_vertices * (num_vertices - 1))
+        density_percentage = round(density * 100, 2)
+    else:
+        density = 0.0
+        density_percentage = 0.0
+    
+    return {
+        "success": True,
+        "stadium_graph": graph_data,
+        "stats": {
+            "num_vertices": num_vertices,
+            "num_edges": num_edges,
+            "density": round(density, 4),
+            "density_percentage": density_percentage,
+        }
     }
 
 

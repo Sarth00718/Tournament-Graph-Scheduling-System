@@ -81,22 +81,22 @@ def generate_schedule(
         match_id = m["id"]
         color = int(coloring.get(match_id, 0))
         
-        # Map color to (date, time_slot)
-        date_index = color // len(time_slots)
-        slot_index = color % len(time_slots)
+        # FIXED: Map color directly to time slot index
+        # Each color represents a unique (date, time_slot) combination
+        # Color 0 = Day 0, Slot 0 (Morning)
+        # Color 1 = Day 0, Slot 1 (Afternoon)
+        # Color 2 = Day 0, Slot 2 (Evening)
+        # Color 3 = Day 1, Slot 0 (Morning)
+        # etc.
+        
+        total_slots_per_day = len(time_slots)
+        date_index = color // total_slots_per_day
+        slot_index = color % total_slots_per_day
         
         match_date = start_date + timedelta(days=date_index)
+        time_slot = time_slots[slot_index]
         
         # CRITICAL FIX: Validate date doesn't exceed end_date
-        if match_date > end_date:
-            raise ValueError(
-                f"Schedule generation failed: Match {match_id} would be scheduled on "
-                f"{match_date.isoformat()} which exceeds the tournament end date "
-                f"{end_date.isoformat()}. This indicates the date range is too small "
-                f"for the given constraints."
-            )
-        
-        time_slot = time_slots[slot_index]
         if match_date > end_date:
             days_needed = date_index + 1
             days_available = (end_date - start_date).days + 1
@@ -115,8 +115,6 @@ def generate_schedule(
                 f"  3. Reduce rest_days_between_matches (currently {rest_days})\n"
                 f"  4. Add more stadiums (currently {stadium_count})"
             )
-        
-        time_slot = time_slots[slot_index]
         
         # Stadium assignment with round-robin within each color
         current_usage = color_stadium_usage.get(color, 0)
@@ -219,9 +217,9 @@ def _enforce_rest_days(
                 curr_date = date.fromisoformat(curr["date"])
                 gap = (curr_date - prev_date).days
 
-                if gap < rest_days:
+                if gap <= rest_days:
                     # Violation detected
-                    required_date = prev_date + timedelta(days=rest_days)
+                    required_date = prev_date + timedelta(days=rest_days + 1)
                     
                     # CRITICAL FIX: Check if required_date exceeds end_date
                     if required_date > end_date:

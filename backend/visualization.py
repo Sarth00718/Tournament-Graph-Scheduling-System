@@ -66,7 +66,7 @@ def build_adjacency_matrix(
                 du = date.fromisoformat(su["date"])
                 dv = date.fromisoformat(sv["date"])
                 gap = abs((du - dv).days)
-                if gap < rest_days:
+                if gap <= rest_days:
                     mat[i][j] = mat[j][i] = 2
 
     labels = []
@@ -180,13 +180,39 @@ def build_tournament_tree(teams: list[str]) -> dict[str, Any]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def graph_statistics(G: nx.Graph, coloring: dict) -> dict[str, Any]:
+    """
+    Compute graph statistics including density.
+    
+    Density Formula:
+    ----------------
+    For an undirected graph G = (V, E):
+    
+    density(G) = 2|E| / (|V|(|V| - 1))
+    
+    Where:
+    - |V| = number of vertices (nodes)
+    - |E| = number of edges
+    - |V|(|V| - 1) = maximum possible edges in a simple graph
+    
+    Interpretation:
+    - density = 0: No edges (empty graph)
+    - density = 1: Complete graph (all possible edges exist)
+    - 0 < density < 1: Partial connectivity
+    
+    Example:
+    - 5 vertices, 6 edges → density = 2×6 / (5×4) = 12/20 = 0.6 (60%)
+    """
     n = G.number_of_nodes()
     m = G.number_of_edges()
     chi = (int(max(coloring.values())) + 1) if coloring else 0
     degrees: dict = dict(G.degree())
     avg_deg = float(f"{sum(degrees.values()) / n:.2f}") if n else 0.0
     max_deg = int(max(degrees.values())) if n else 0
+    
+    # Density calculation: 2|E| / (|V|(|V| - 1))
+    # NetworkX uses this formula for undirected graphs
     density = float(round(nx.density(G), 4))
+    
     is_connected: bool = bool(nx.is_connected(G)) if n > 0 else False
 
     return {
@@ -197,5 +223,6 @@ def graph_statistics(G: nx.Graph, coloring: dict) -> dict[str, Any]:
         "avg_degree": avg_deg,
         "max_degree": max_deg,
         "density": density,
+        "density_percentage": float(round(density * 100, 2)),
         "is_connected": is_connected,
     }
