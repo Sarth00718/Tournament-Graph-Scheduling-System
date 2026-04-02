@@ -25,7 +25,7 @@ import logging
 from data_loader import parse_payload  # type: ignore[import-not-found]
 from conflict_graph import generate_matches, build_conflict_graph, graph_to_dict  # type: ignore[import-not-found]
 from graph_coloring import welsh_powell_coloring, chromatic_number, coloring_summary, validate_coloring  # type: ignore[import-not-found]
-from travel_optimizer import build_stadium_graph, compute_team_travel, stadium_graph_to_dict  # type: ignore[import-not-found]
+from travel_optimizer import build_stadium_graph, compute_team_travel  # type: ignore[import-not-found]
 from schedule_generator import generate_schedule  # type: ignore[import-not-found]
 from visualization import build_adjacency_matrix, build_tournament_tree, graph_statistics  # type: ignore[import-not-found]
 
@@ -279,7 +279,6 @@ def generate_schedule_endpoint(payload: ScheduleRequest) -> dict[str, Any]:
             "tournament_tree": tournament_tree,
             "schedule": schedule,
             "stats": stats,
-            "stadium_graph": stadium_graph_to_dict(stadium_graph),
             "coloring": coloring,
             "chromatic_number": chi,
             "color_groups": {str(k): v for k, v in color_groups.items()},
@@ -349,7 +348,6 @@ def get_travel_report() -> dict[str, Any]:
     return {
         "success": True,
         "travel_report": STATE["travel_report"],
-        "stadium_graph": STATE.get("stadium_graph", {}),
     }
 
 
@@ -386,46 +384,6 @@ def get_tournament_tree() -> dict[str, Any]:
     return {
         "success": True,
         "tournament_tree": STATE["tournament_tree"],
-    }
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# GET /stadium_graph
-# ─────────────────────────────────────────────────────────────────────────────
-
-@app.get("/stadium_graph")
-def get_stadium_graph() -> dict[str, Any]:
-    """Return the stadium graph with nodes, edges, and statistics."""
-    if "stadium_graph" not in STATE:
-        raise HTTPException(
-            status_code=404,
-            detail="No schedule generated yet. Call POST /generate_schedule first.",
-        )
-    
-    graph_data = STATE["stadium_graph"]
-    nodes = graph_data["nodes"]
-    edges = graph_data["edges"]
-    
-    # Calculate density: 2|E| / (|V|(|V| - 1))
-    num_vertices = len(nodes)
-    num_edges = len(edges)
-    
-    if num_vertices > 1:
-        density = (2 * num_edges) / (num_vertices * (num_vertices - 1))
-        density_percentage = round(density * 100, 2)
-    else:
-        density = 0.0
-        density_percentage = 0.0
-    
-    return {
-        "success": True,
-        "stadium_graph": graph_data,
-        "stats": {
-            "num_vertices": num_vertices,
-            "num_edges": num_edges,
-            "density": round(density, 4),
-            "density_percentage": density_percentage,
-        }
     }
 
 

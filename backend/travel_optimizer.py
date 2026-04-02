@@ -263,31 +263,3 @@ def compute_team_travel(
     )
 
     return report
-
-
-def stadium_graph_to_dict(G: nx.Graph) -> Dict[str, Any]:
-    """
-    Return JSON-serializable stadium graph.
-    
-    Parameters
-    ----------
-    G : nx.Graph
-        Stadium graph
-    
-    Returns
-    -------
-    Dict with nodes and edges lists
-    """
-    nodes = [
-        {"id": n, "lat": d["lat"], "lng": d["lng"]}
-        for n, d in G.nodes(data=True)
-    ]
-    edges = [
-        {
-            "source": u,
-            "target": v,
-            "distance_km": float(round(float(d["weight"]), 2))
-        }
-        for u, v, d in G.edges(data=True)
-    ]
-    return {"nodes": nodes, "edges": edges}

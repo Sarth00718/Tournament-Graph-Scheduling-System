@@ -1,18 +1,26 @@
 """
 graph_coloring.py
 -----------------
-Implements the EXACT Welsh-Powell Graph Coloring Algorithm.
+Implements the TRUE Welsh-Powell Graph Coloring Algorithm.
+
+The Welsh-Powell algorithm is a greedy graph coloring algorithm that:
+1. Sorts vertices by degree in descending order
+2. Assigns colors by processing each color class completely before moving to next
+3. For each color, assigns it to all non-adjacent vertices in order
+
+This implementation includes an optional capacity constraint for practical scheduling.
 
 IMPROVEMENTS:
+- Correct Welsh-Powell algorithm implementation
 - Added proper type hints throughout
 - Better handling of empty graphs
-- Improved stadium capacity enforcement
+- Optional stadium capacity enforcement
 - Added logging for debugging
-- Better documentation
+- Comprehensive documentation
 """
 
 from __future__ import annotations
-from typing import Dict, List
+from typing import Dict, List, Set
 import networkx as nx  # type: ignore[import]
 import logging
 
@@ -24,13 +32,19 @@ def welsh_powell_coloring(
     max_color_capacity: int | None = None
 ) -> Dict[str, int]:
     """
-    Apply the Welsh-Powell algorithm and return a vertex coloring.
+    Apply the TRUE Welsh-Powell algorithm and return a vertex coloring.
     
-    Algorithm:
-    1. Sort vertices by degree (descending)
-    2. For each vertex, assign the smallest color that:
-       - Is not used by any neighbor (conflict-free)
-       - Does not exceed capacity limit (if specified)
+    ALGORITHM (Welsh-Powell):
+    1. Sort all vertices by degree in descending order
+    2. Assign color 0 to the first vertex
+    3. Go through the sorted list and assign color 0 to all vertices 
+       that are NOT adjacent to any vertex already colored with color 0
+    4. Repeat step 3 for color 1, 2, 3... until all vertices are colored
+    
+    CAPACITY CONSTRAINT (Extension):
+    If max_color_capacity is specified, no color can be assigned to more
+    than that many vertices. This ensures each time slot doesn't exceed
+    stadium capacity.
     
     Parameters
     ----------
@@ -60,10 +74,10 @@ def welsh_powell_coloring(
         logger.info("Empty graph, returning empty coloring")
         return {}
 
-    # Step 1: Compute degrees
+    # Step 1: Compute degrees and sort vertices
     degree_map: Dict[str, int] = dict(G.degree())
     
-    # Step 2: Sort vertices by descending degree, then by ID for determinism
+    # Sort vertices by descending degree, then by ID for determinism
     sorted_vertices: List[str] = sorted(
         G.nodes(),
         key=lambda v: (-degree_map[v], str(v)),
@@ -74,38 +88,61 @@ def welsh_powell_coloring(
         f"max degree = {max(degree_map.values()) if degree_map else 0}"
     )
 
-    # Step 3: Greedy coloring with capacity constraints
+    # Step 2: Welsh-Powell coloring algorithm
     coloring: Dict[str, int] = {}
     color_counts: Dict[int, int] = {}
+    uncolored: Set[str] = set(sorted_vertices)
+    current_color = 0
 
-    for vertex in sorted_vertices:
-        # Collect colors already used by neighbors
-        neighbour_colors: set[int] = {
-            coloring[nbr]
-            for nbr in G.neighbors(vertex)
-            if nbr in coloring
-        }
-
-        # Find the smallest valid color
-        color = 0
-        while True:
-            # Check conflict constraint: adjacent vertices must have different colors
-            if color in neighbour_colors:
-                color += 1
+    while uncolored:
+        # Start a new color class
+        color_class: List[str] = []
+        vertices_to_remove: List[str] = []
+        
+        for vertex in sorted_vertices:
+            # Skip if already colored
+            if vertex not in uncolored:
                 continue
             
-            # Check capacity constraint: no color should exceed max_color_capacity
+            # Check capacity constraint
             if max_color_capacity is not None:
-                current_count = color_counts.get(color, 0)
-                if current_count >= max_color_capacity:
-                    color += 1
-                    continue
+                if len(color_class) >= max_color_capacity:
+                    break  # This color is at capacity, move to next color
             
-            # Valid color found
+            # Check if vertex can use current color
+            # (must not be adjacent to any vertex already in this color class)
+            can_use_color = True
+            for colored_vertex in color_class:
+                if G.has_edge(vertex, colored_vertex):
+                    can_use_color = False
+                    break
+            
+            if can_use_color:
+                # Assign current color to this vertex
+                coloring[vertex] = current_color
+                color_class.append(vertex)
+                vertices_to_remove.append(vertex)
+        
+        # Remove colored vertices from uncolored set
+        for vertex in vertices_to_remove:
+            uncolored.remove(vertex)
+        
+        # Update color count
+        color_counts[current_color] = len(color_class)
+        
+        logger.debug(
+            f"Color {current_color}: assigned to {len(color_class)} vertices"
+        )
+        
+        # Move to next color
+        current_color += 1
+        
+        # Safety check: prevent infinite loop
+        if current_color > num_nodes:
+            logger.error(
+                f"Welsh-Powell exceeded {num_nodes} colors. This should never happen!"
+            )
             break
-
-        coloring[vertex] = color
-        color_counts[color] = color_counts.get(color, 0) + 1
 
     # Log results
     chi = max(coloring.values()) + 1 if coloring else 0
@@ -114,7 +151,7 @@ def welsh_powell_coloring(
         f"color distribution = {dict(sorted(color_counts.items()))}"
     )
     
-    # Warn if capacity was exceeded (shouldn't happen with correct algorithm)
+    # Validate capacity constraint
     if max_color_capacity is not None:
         for color, count in color_counts.items():
             if count > max_color_capacity:
